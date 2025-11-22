@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>简约农历日历</title>
+    <script src="lunar-calendar.js"></script>
+    <style>
+        :root {
+            --primary-color: #007aff;
+            --today-bg-color: #e0f2f7; /* Soft blue for today's background */
+            --border-color: #e0e0e0;
+            --bg-color: #f9f9f9;
+            --text-color: #333;
+            --text-light-color: #999;
+            --holiday-color: #f68a2c;
+            --workday-color: #4caf50;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            display: flex;
+            justify-content: center;
+            align-items: flex-start; /* Align to top */
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        #main-content {
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            width: 100%;
+            gap: 20px;
+            transition: all 0.4s ease;
+        }
+        .calendar-container {
+            background-color: #fff;
+            border-radius: 12px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.05);
+            overflow: hidden;
+            flex-shrink: 0;
+            width: 100%;
+            max-width: 900px;
+            transition: all 0.4s ease;
+        }
+        #main-content.details-visible .calendar-container {
+            max-width: 60%;
+        }
+        .calendar-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px;
+            background-color: #fff;
+            border-bottom: 1px solid var(--border-color);
+        }
+        .calendar-header .controls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .calendar-header select, .calendar-header button {
+            font-size: 16px;
+            padding: 8px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            background-color: #fff;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .calendar-header select:hover, .calendar-header button:hover {
+            border-color: var(--primary-color);
+            color: var(--primary-color);
+        }
+        .calendar-header .today-btn {
+            background-color: var(--primary-color);
+            color: #fff;
+            border-color: var(--primary-color);
+        }
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+        }
+        .grid-header {
+            text-align: center;
+            padding: 12px 0;
+            font-weight: 600;
+            color: var(--primary-color);
+            border-bottom: 1px solid var(--border-color);
+        }
+        .day-cell {
+            position: relative;
+            border-right: 1px solid var(--border-color);
+            border-bottom: 1px solid var(--border-color);
+            padding: 8px;
+            min-height: 100px;
+            transition: background-color 0.2s ease;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+        }
+        .day-cell:nth-child(7n) {
+            border-right: none;
+        }
+        .day-cell.other-month {
+            color: var(--text-light-color);
+            background-color: #fafafa;
+        }
+        .day-cell:not(.other-month) {
+            cursor: pointer;
+        }
+        .day-cell:not(.other-month):hover {
+            background-color: #f0f8ff;
+        }
+        .day-cell .solar-day {
+            font-size: 18px;
+            font-weight: 500;
+            margin-bottom: 4px;
+        }
+        .day-cell.is-today {
+            background-color: var(--today-bg-color);
+        }
+        .day-cell.is-today .solar-day {
+            color: var(--text-color);
+            background-color: transparent;
+            width: auto;
+            height: auto;
+            border-radius: 0;
+            display: block;
+        }
+        .day-cell.is-weekend .solar-day {
+            color: var(--holiday-color);
+        }
+        .day-cell .lunar-info {
+            font-size: 12px;
+            margin-top: 0;
+        }
+        .day-cell .lunar-day {
+            color: var(--text-light-color);
+        }
+        .day-cell .festival {
+            color: var(--holiday-color);
+            font-weight: 500;
+            margin-top: 2px;
+        }
+        .work-status {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            width: 16px;
+            height: 16px;
+            border-radius: 4px;
+            font-size: 10px;
+            color: #fff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-weight: bold;
+        }
+        .work-status.holiday {
+            background-color: var(--holiday-color);
+        }
+        .work-status.workday {
+            background-color: var(--workday-color);
+        }
+        #details-pane {
+            background-color: #fff;
+            border-radius: 12px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.05);
+            padding: 20px;
+            flex: 1 1 40%;
+            display: none;
+            height: fit-content;
+        }
+        #details-content {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            font-family: "SF Mono", "Fira Code", "Courier New", monospace;
+            font-size: 14px;
+            color: #555;
+            max-height: 70vh;
+            overflow-y: auto;
+        }
+        #loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            color: #fff;
+            font-size: 18px;
+        }
+        .loading-spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid var(--primary-color);
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin-right: 15px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+
+<div id="loading-overlay">
+    <div class="loading-spinner"></div>
+    正在加载...
+</div>
+
+<div id="main-content">
+    <div class="calendar-container">
+        <div class="calendar-header">
+            <div class="controls">
+                <button id="prev-month-btn">&lt;</button>
+                <select id="year-select"></select>
+                <select id="month-select"></select>
+                <button id="next-month-btn">&gt;</button>
+            </div>
+            <button id="today-btn" class="today-btn">回到今天</button>
+        </div>
+        <div class="calendar-grid" id="week-header"></div>
+        <div class="calendar-grid" id="calendar-body"></div>
+    </div>
+    <div id="details-pane">
+        <div id="details-content"></div>
+    </div>
+</div>
+
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const mainContent = document.getElementById('main-content');
+    const yearSelect = document.getElementById('year-select');
+    const monthSelect = document.getElementById('month-select');
+    const prevMonthBtn = document.getElementById('prev-month-btn');
+    const nextMonthBtn = document.getElementById('next-month-btn');
+    const todayBtn = document.getElementById('today-btn');
+    const calendarBody = document.getElementById('calendar-body');
+    const weekHeader = document.getElementById('week-header');
+    const detailsPane = document.getElementById('details-pane');
+    const detailsContent = document.getElementById('details-content');
+    const loadingOverlay = document.getElementById('loading-overlay');
+
+    const today = new Date();
+    let currentYear = today.getFullYear();
+    let currentMonth = today.getMonth() + 1;
+    let abortController = null;
+
+    function init() {
+        // Populate year select
+        const minYear = LunarCalendar.minYear;
+        const maxYear = LunarCalendar.maxYear;
+        for (let i = maxYear; i >= minYear; i--) {
+            const option = document.createElement('option');
+            option.value = i;
+            option.textContent = `${i}年`;
+            yearSelect.appendChild(option);
+        }
+
+        // Populate month select
+        for (let i = 1; i <= 12; i++) {
+            const option = document.createElement('option');
+            option.value = i;
+            option.textContent = `${i}月`;
+            monthSelect.appendChild(option);
+        }
+        
+        // Populate week header
+        const weekDays = ['日', '一', '二', '三', '四', '五', '六'];
+        weekDays.forEach(day => {
+            const headerCell = document.createElement('div');
+            headerCell.className = 'grid-header';
+            headerCell.textContent = day;
+            weekHeader.appendChild(headerCell);
+        });
+
+        // --- Event Listeners ---
+        yearSelect.addEventListener('change', () => {
+            currentYear = parseInt(yearSelect.value);
+            updateAndRender();
+        });
+
+        monthSelect.addEventListener('change', () => {
+            currentMonth = parseInt(monthSelect.value);
+            updateAndRender();
+        });
+
+        prevMonthBtn.addEventListener('click', () => {
+            currentMonth--;
+            if (currentMonth < 1) {
+                currentMonth = 12;
+                currentYear--;
+            }
+            updateAndRender();
+        });
+
+        nextMonthBtn.addEventListener('click', () => {
+            currentMonth++;
+            if (currentMonth > 12) {
+                currentMonth = 1;
+                currentYear++;
+            }
+            updateAndRender();
+        });
+
+        todayBtn.addEventListener('click', () => {
+            currentYear = today.getFullYear();
+            currentMonth = today.getMonth() + 1;
+            updateAndRender();
+        });
+
+        calendarBody.addEventListener('click', handleDayClick);
+
+        updateAndRender();
+    }
+
+    function updateAndRender() {
+        yearSelect.value = currentYear;
+        monthSelect.value = currentMonth;
+        renderCalendar(currentYear, currentMonth);
+        mainContent.classList.remove('details-visible');
+        detailsPane.style.display = 'none';
+    }
+
+    async function handleDayClick(event) {
+        const cell = event.target.closest('.day-cell');
+        if (!cell || cell.classList.contains('other-month')) {
+            return;
+        }
+
+        if (abortController) {
+            abortController.abort();
+        }
+        abortController = new AbortController();
+        const signal = abortController.signal;
+
+        const { year, month, day } = cell.dataset;
+        const paddedMonth = String(month).padStart(2, '0');
+        const paddedDay = String(day).padStart(2, '0');
+        const url = `https://raw.githubusercontent.com/WangGuibin/weather-action/refs/heads/master/${year}/${year}-${paddedMonth}-${paddedDay}.txt`;
+
+        loadingOverlay.style.display = 'flex';
+        detailsContent.textContent = '';
+
+        try {
+            const response = await fetch(url, { signal });
+            
+            mainContent.classList.add('details-visible');
+            detailsPane.style.display = 'block';
+
+            if (!response.ok) {
+                detailsContent.textContent = response.status === 404 ? '当天没有数据' : `HTTP 错误: ${response.status}`;
+            } else {
+                const text = await response.text();
+                detailsContent.textContent = text.trim() ? text : '当天没有数据';
+            }
+        } catch (err) {
+            if (err.name !== 'AbortError') {
+                mainContent.classList.add('details-visible');
+                detailsPane.style.display = 'block';
+                detailsContent.textContent = '获取数据失败';
+                console.error('Fetch error:', err);
+            }
+        } finally {
+            if (!signal.aborted) {
+                loadingOverlay.style.display = 'none';
+            }
+        }
+    }
+
+    function renderCalendar(year, month) {
+        calendarBody.innerHTML = '';
+        const calendarData = LunarCalendar.calendar(year, month);
+
+        if (calendarData.error) {
+            calendarBody.innerHTML = `<p style="text-align: center; padding: 20px; color: red;">${calendarData.msg}</p>`;
+            return;
+        }
+
+        calendarData.monthData.forEach((dayData, index) => {
+            const cell = document.createElement('div');
+            cell.className = 'day-cell';
+
+            cell.dataset.year = dayData.year;
+            cell.dataset.month = dayData.month;
+            cell.dataset.day = dayData.day;
+
+            if (dayData.month !== month) {
+                cell.classList.add('other-month');
+            }
+
+            const dayOfWeek = index % 7;
+            if ((dayOfWeek === 0 || dayOfWeek === 6) && dayData.month === month) {
+                cell.classList.add('is-weekend');
+            }
+
+            if (dayData.year === today.getFullYear() && dayData.month === today.getMonth() + 1 && dayData.day === today.getDate()) {
+                cell.classList.add('is-today');
+            }
+
+            const solarDay = document.createElement('div');
+            solarDay.className = 'solar-day';
+            solarDay.textContent = dayData.day;
+            cell.appendChild(solarDay);
+
+            const lunarInfo = document.createElement('div');
+            lunarInfo.className = 'lunar-info';
+
+            const lunarDay = document.createElement('div');
+            lunarDay.className = 'lunar-day';
+            lunarDay.textContent = dayData.lunarDayName === '初一' ? dayData.lunarMonthName : dayData.lunarDayName;
+            lunarInfo.appendChild(lunarDay);
+            
+            const festival = document.createElement('div');
+            festival.className = 'festival';
+            let festivalText = dayData.solarFestival.split('-')[0] || dayData.lunarFestival || dayData.term;
+            if (festivalText) {
+                festival.textContent = festivalText;
+                lunarInfo.appendChild(festival);
+            }
+            
+            cell.appendChild(lunarInfo);
+
+            if (dayData.worktime === 1 || dayData.worktime === 2) {
+                const workStatus = document.createElement('div');
+                workStatus.className = 'work-status';
+                if (dayData.worktime === 2) {
+                    workStatus.classList.add('holiday');
+                    workStatus.textContent = '休';
+                } else {
+                    workStatus.classList.add('workday');
+                    workStatus.textContent = '班';
+                }
+                cell.appendChild(workStatus);
+            }
+
+            calendarBody.appendChild(cell);
+        });
+    }
+
+    init();
+});
+</script>
+
+</body>
+</html>
